@@ -30,6 +30,7 @@ app.get('/', (req, res) => {
     endpoints: {
       '/account': 'Get account balance',
       '/positions': 'Get current positions',
+      '/trades': 'Get historical user trades',
       '/ticker/:symbol': 'Get ticker price for symbol',
       '/klines/:symbol': 'Get kline data for symbol'
     }
@@ -72,6 +73,40 @@ app.get('/positions', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       error: 'Failed to fetch positions',
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
+app.get('/trades', async (req, res) => {
+  try {
+    const { symbol, startTime, endTime, limit = 100 } = req.query;
+    
+    const timestamp = Date.now();
+    
+    // Build query parameters
+    const params = new URLSearchParams({
+      timestamp: timestamp.toString(),
+      limit: limit.toString()
+    });
+    
+    if (symbol) params.append('symbol', symbol.toUpperCase());
+    if (startTime) params.append('startTime', startTime);
+    if (endTime) params.append('endTime', endTime);
+    
+    const queryString = params.toString();
+    const signature = createSignature(queryString);
+    
+    const response = await axios.get(
+      `${BINANCE_BASE_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`,
+      { headers: createAuthHeaders() }
+    );
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Trades API error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch trades',
       details: error.response?.data || error.message 
     });
   }
